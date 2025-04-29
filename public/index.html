@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>V4 网络调试工具</title>
+  <style>
+    body { font-family: sans-serif; padding: 10px; }
+    #nav { margin-bottom: 20px; }
+    #nav button {
+      padding: 10px 20px;
+      margin-right: 10px;
+      cursor: pointer;
+      background: #f0f0f0;
+      border: 1px solid #ddd;
+    }
+    #nav button.active {
+      background: #4CAF50;
+      color: white;
+    }
+    .view-container { display: none; }
+    .view-container.active { display: block; }
+    #controls { float: left; width: 340px; }
+    #dataContainer {
+      margin-left: 360px;
+      display: flex;
+      gap: 10px;
+    }
+    .stream {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ccc;
+      height: 600px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+    .stream h4 { margin-top: 0; background: #f5f5f5; padding: 4px; text-align: center; }
+    .entry { margin-bottom: 8px; }
+    .label { background: #eef; padding: 2px 6px; border-radius: 3px; margin-right: 6px; }
+    .timestamp { color: #888; font-size: 0.8em; margin-right: 6px; }
+    #proxyControls input { width: 140px; margin-right: 4px; }
+    .http-entry {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding: 4px;
+      background: #f8f8f8;
+    }
+    .http-request {
+      flex: 1;
+      text-align: left;
+      padding-right: 10px;
+    }
+    .http-response {
+      flex: 1;
+      text-align: right;
+      padding-left: 10px;
+      border-left: 1px solid #ddd;
+    }
+    #httpView .exportPcapBtn {
+      margin-top: 10px;
+      background: #ff9800;
+      border-color: #ff6f00;
+    }
+    #httpView .exportPcapBtn:hover { background: #ff6f00; }
+    #httpStream { height: 300px; margin-top: 20px; }
+    .file-item { background: #f9f9f9; border-color: #e0e0e0; }
+    .copy-url { background: #2196f3; border-color: #1976d2; }
+  </style>
+</head>
+<body>
+  <div id="nav">
+    <button id="switchProxy" class="active">代理模式</button>
+    <button id="switchHTTP">HTTP模式</button>
+    <button id="switchCOAP">COAP模式</button> <!-- 新增跳转COAP按钮 -->
+  </div>
+
+  <!-- 代理模式视图 -->
+  <div id="proxyView" class="view-container active">
+    <div id="controls">
+      <h3>协议切换</h3>
+      <button id="tcpBtn" class="active">TCP</button>
+      <button id="udpBtn">UDP</button>
+
+      <h3>操作</h3>
+      <button id="printBtn">暂停打印</button>
+      <button id="forwardBtn">暂停转发</button>
+      <button id="disconnectTcpBtn">断开 TCP</button>
+      <button id="exportPcapBtn">导出 PCAP</button>
+
+      <h3>中转目标</h3>
+      <div id="proxyControls">
+        <input id="targetIp" placeholder="目标 IP">
+        <input id="targetPort" placeholder="目标 Port">
+        <button id="setTargetBtn">连接目标</button>
+        <button id="clearTargetBtn">清除目标</button>
+      </div>
+      <div>目标状态: <span id="targetStatus">无目标</span></div>
+
+      <h3>系统信息</h3>
+      <div>本机 IP: <span id="ip"></span></div>
+      <div>监听端口: <span id="port">—</span></div>
+      <div>协议: <span id="currentProtocol">TCP</span></div>
+
+      <h4>数据格式</h4>
+      <label><input type="radio" name="format" value="HEX" checked> HEX</label>
+      <label><input type="radio" name="format" value="ASCII"> ASCII</label>
+
+      <h4>功能开关</h4>
+      <label><input type="checkbox" id="echoToggle"> 开启回声</label><br>
+      <label><input type="checkbox" id="autoToggle"> 自动循环响应</label><br>
+
+      <div id="autoContainer">
+        <div class="autoMsgRow"><input class="autoMsg" placeholder="循环响应(HEX)"></div>
+        <div class="autoMsgRow"><input class="autoMsg" placeholder="循环响应(HEX)"></div>
+        <div class="autoMsgRow"><input class="autoMsg" placeholder="循环响应(HEX)"></div>
+      </div>
+      <button id="addAuto">扩展循环输入框</button>
+
+      <h4>手动发送</h4>
+      <input type="text" id="manualInput" placeholder="输入报文">
+      <button id="sendManual">Send</button>
+    </div>
+
+    <div id="dataContainer">
+      <div id="recvStream" class="stream"><h4>接收 (客户端→服务器)</h4></div>
+      <div id="sendStream" class="stream"><h4>发送 (服务器→客户端)</h4></div>
+      <div id="proxyStream" class="stream"><h4>代理 (服务器↔目标)</h4></div>
+    </div>
+  </div>
+
+  <!-- HTTP模式视图 -->
+  <div id="httpView" class="view-container">
+    <div style="margin: 20px;">
+      <h3>HTTP 文件服务（端口 8080）</h3>
+      <input type="text" id="folderPath" placeholder="输入保存路径（可选）">
+      <input type="file" id="fileInput" />
+      <button id="uploadBtn">上传文件</button>
+      <button id="refreshFiles">刷新列表</button>
+      <button id="exportPcapHttpBtn" style="margin-left: 10px;">导出 PCAP</button>
+
+      <h4>服务器文件列表</h4>
+      <div id="fileList"></div>
+
+      <h4>HTTP 交互记录</h4>
+      <div id="httpStream" class="stream"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
